@@ -11,13 +11,18 @@ import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
 import io.reactivex.ObservableSource;
+import io.reactivex.Observer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
+import io.reactivex.functions.Predicate;
 import io.reactivex.schedulers.Schedulers;
 
 /**
  * 操作符示例
+ * 参考：https://www.jianshu.com/p/0f2d6c2387c9
  */
 public class OperatorHelper {
     private static final String TAG = "OperatorHelper";
@@ -188,5 +193,209 @@ public class OperatorHelper {
                         Log.e(TAG, "accept（zip）: " + s);
                     }
                 });
+
+        backPressureTest();
+    }
+
+    /**
+     * BackPressure背压
+     * 控制数据流速，避免Observable发送数据太频繁，Observer接收处理不过来导致异常
+     */
+    public static void backPressureTest() {
+        /**
+         * filter()
+         * 过滤操作符
+         * 缺点：事件会丢失
+         */
+        Observable.create(new ObservableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(ObservableEmitter<Integer> e) throws Exception {
+                for (int i = 0; ; i++) {
+                    e.onNext(i);
+                }
+            }
+        })
+                .subscribeOn(Schedulers.io())
+                //filter()
+                //过滤操作符
+                .filter(new Predicate<Integer>() {
+                    @Override
+                    public boolean test(Integer integer) throws Exception {
+                        return integer % 100 == 0;
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Observer<Integer>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(Integer value) {
+                        Log.e(TAG, "onNext(filter): " + value);
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.e(TAG, "onError(filter): " + e.getMessage());
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });
+
+        /**
+         *  sample()
+         *  取样操作符，不管Observable发送数据多频繁，都只每隔2秒取一次数据发给Observer
+         *  缺点：事件会丢失
+         */
+        Observable.create(new ObservableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(ObservableEmitter<Integer> e) throws Exception {
+                for (int i = 0; ; i++) {
+                    e.onNext(i);
+                }
+            }
+        })
+                .subscribeOn(Schedulers.io())
+                //sample()
+                //取样操作符，不管Observable发送数据多频繁，都只每隔2秒取一次数据发给Observer
+                .sample(2, TimeUnit.SECONDS)
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Observer<Integer>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(Integer value) {
+                        Log.e(TAG, "onNext(sample): " + value);
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.e(TAG, "onError(sample): " + e.getMessage());
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });
+
+        /**
+         * 发送数据的源头处，控制发送频率
+         * 事件不会丢失
+         */
+        Observable.create(new ObservableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(ObservableEmitter<Integer> e) throws Exception {
+                for (int i = 0; ; i++) {
+                    e.onNext(i);
+                    Thread.sleep(2000);
+                }
+            }
+        })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Observer<Integer>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(Integer value) {
+                        Log.e(TAG, "onNext(sleep 2000ms): " + value);
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.e(TAG, "onError(sleep 2000ms): " + e.getMessage());
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });
+
+        //-----------------------------------------------sample采样-----------------------------------------------------------
+
+        Observable<Integer> observable1 = Observable.create(new ObservableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(ObservableEmitter<Integer> emitter) throws Exception {
+                for (int i = 0; ; i++) {
+                    emitter.onNext(i);
+                }
+            }
+        }).subscribeOn(Schedulers.io()).sample(2, TimeUnit.SECONDS); //进行sample采样
+
+        Observable<String> observable2 = Observable.create(new ObservableOnSubscribe<String>() {
+            @Override
+            public void subscribe(ObservableEmitter<String> emitter) throws Exception {
+                emitter.onNext("A");
+            }
+        }).subscribeOn(Schedulers.io());
+
+        Observable.zip(observable1, observable2, new BiFunction<Integer, String, String>() {
+            @Override
+            public String apply(Integer integer, String s) throws Exception {
+                return integer + s;
+            }
+        }).observeOn(AndroidSchedulers.mainThread()).subscribe(new Consumer<String>() {
+            @Override
+            public void accept(String s) throws Exception {
+                Log.d(TAG, s);
+            }
+        }, new Consumer<Throwable>() {
+            @Override
+            public void accept(Throwable throwable) throws Exception {
+                Log.w(TAG, throwable);
+            }
+        });
+
+        //-----------------------------------------延时2秒-----------------------------------------------------------------
+
+        Observable<Integer> observable01 = Observable.create(new ObservableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(ObservableEmitter<Integer> emitter) throws Exception {
+                for (int i = 0; ; i++) {
+                    emitter.onNext(i);
+                    Thread.sleep(2000);  //发送事件之后延时2秒
+                }
+            }
+        }).subscribeOn(Schedulers.io());
+
+        Observable<String> observable02 = Observable.create(new ObservableOnSubscribe<String>() {
+            @Override
+            public void subscribe(ObservableEmitter<String> emitter) throws Exception {
+                emitter.onNext("A");
+            }
+        }).subscribeOn(Schedulers.io());
+
+        Observable.zip(observable01, observable02, new BiFunction<Integer, String, String>() {
+            @Override
+            public String apply(Integer integer, String s) throws Exception {
+                return integer + s;
+            }
+        }).observeOn(AndroidSchedulers.mainThread()).subscribe(new Consumer<String>() {
+            @Override
+            public void accept(String s) throws Exception {
+                Log.d(TAG, s);
+            }
+        }, new Consumer<Throwable>() {
+            @Override
+            public void accept(Throwable throwable) throws Exception {
+                Log.w(TAG, throwable);
+            }
+        });
+
+        //----------------------------------------------------------------------------------------------------------
+
     }
 }
