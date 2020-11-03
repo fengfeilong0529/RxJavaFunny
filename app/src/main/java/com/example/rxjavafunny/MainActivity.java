@@ -133,6 +133,7 @@ public class MainActivity extends AppCompatActivity {
 
 
         OperatorHelper.testOperator();
+        FlowableHelper.testFlowable();
     }
 
     /**
