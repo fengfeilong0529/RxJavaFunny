@@ -395,7 +395,168 @@ public class OperatorHelper {
             }
         });
 
-        //----------------------------------------------------------------------------------------------------------
+    }
+
+    /**
+     * https://www.jianshu.com/p/b30de498c3cc
+     */
+    public static void testOtherOperator() {
+        Observable observable1 = Observable.empty();//直接调用onCompleted。
+        Observable observable2 = Observable.error(new RuntimeException());//直接调用onError。这里可以自定义异常
+        Observable observable3 = Observable.never();//啥都不做
+
+        //timer()   延时
+        Observable.timer(1000, TimeUnit.MILLISECONDS)
+                .subscribe(new Consumer<Long>() {
+                    @Override
+                    public void accept(Long aLong) throws Exception {
+                        Log.e(TAG, "accept: " + aLong.toString());
+                    }
+                });
+
+        //interval()    定时器任务 从0开始
+        Observable.interval(10, TimeUnit.SECONDS)
+                .subscribe(new Consumer<Long>() {
+                    @Override
+                    public void accept(Long aLong) throws Exception {
+                        Log.e(TAG, "accept: " + aLong.toString());
+                    }
+                });
+
+        //range()  创建一个发射指定范围的整数序列的Observable<Integer>
+        Observable.range(2, 5)
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) {
+                        Log.e(TAG, integer.toString());// 2,3,4,5,6  从2开始发射5个数据
+                    }
+                });
+
+        //concat() 合并Observable，Observable.concat(a,b)等价于a.concatWith(b)
+        Observable<Integer> observable11 = Observable.just(1, 2, 3, 4);
+        Observable<Integer> observable22 = Observable.just(4, 5, 6);
+
+        Observable.concat(observable11, observable22)
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(concat): " + integer);//1,2,3,4,4,5,6
+                    }
+                });
+
+        observable11.concatWith(observable22)
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(concatWith): " + integer);//1,2,3,4,4,5,6
+                    }
+                });
+
+        //startWith()   在数据序列的开头增加一项数据。startWith的内部也是调用了concat
+        Observable.just(1, 2, 3)
+                .startWith(6)
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(startWith): " + integer);//6,1,2,3
+                    }
+                });
+
+        //merge()
+        //将多个Observable合并为一个(不是按照添加顺序连接，而是按照时间线来连接)
+        //一遇到异常将停止发射数据，发送onError通知
+        Observable.merge(observable1, observable2)
+                .subscribe(new Observer() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(Object o) {
+
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });
+
+        //mergeDelayError()
+        //将多个Observable合并为一个(不是按照添加顺序连接，而是按照时间线来连接)
+        //将异常延迟到其它没有错误的Observable发送完毕后才发射
+        Observable.mergeDelayError(observable1, observable2)
+                .subscribe(new Observer() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(Object o) {
+
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });
+
+        //combineLatest()       todo ???
+
+        //filter() 过滤
+        Observable.just(1, 2, "3")
+                .ofType(Integer.class)  //先过滤类型，去除非integer数据
+                .filter(new Predicate<Integer>() {
+                    @Override
+                    public boolean test(Integer integer) throws Exception {
+                        return integer > 1;
+                    }
+                })
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept: " + integer);    //2
+                    }
+                });
+        //ofType() 过滤指定类型
+        Observable.just(1, 2, "3")
+                .ofType(Integer.class)
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept: " + integer);    //1,2
+                    }
+                });
+
+        //take() 只发射开始的N项数据或者一定时间内的数据。内部通过OperatorTake和OperatorTakeTimed过滤数据
+        Observable.just(3, 4, 5, 6)
+                .take(3)//发射前三个数据项
+                .take(100, TimeUnit.MILLISECONDS)//发射100ms内的数据
+                .subscribe();
+
+
+        //takeLast() 只发射最后的N项数据或者一定时间内的数据
+        Observable.just(3, 4, 5, 6, 7, 8)
+                .takeLast(3)
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        //6,7,8
+                    }
+                });
 
     }
 }
