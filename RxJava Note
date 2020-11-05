@@ -8,6 +8,7 @@ filter()
 sample()
 
 delay()
+timer()
 interval()
 all()
 any()
@@ -17,5 +18,6 @@ cache()
 cast()
 collect()
 compose()
+takeUntil()
 ...
 

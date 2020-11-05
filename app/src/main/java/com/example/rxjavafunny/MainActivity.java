@@ -17,6 +17,11 @@ import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.schedulers.Schedulers;
 
+/**
+ * 官网学习笔记（ReactiveX/RxJava文档中文版）：https://mcxiaoke.gitbooks.io/rxdocs/content/
+ * 推荐Rxjava系列：https://www.jianshu.com/u/c50b715ccaeb
+ * RxJava 2.0操作符整理：https://www.jianshu.com/p/b30de498c3cc
+ */
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private Disposable mDisposable;
@@ -128,6 +133,24 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void accept(Integer integer) throws Exception {
                         Log.e(TAG, "accept: " + integer + "  Observer线程-->  " + Thread.currentThread().getName());
+                    }
+                });
+
+        /**
+         * onErrorResumeNext()   当原始Observable在遇到错误时，使用备用Observable
+         */
+        Observable.just(1, 2, "a", 3, 4)
+                .cast(Integer.class)
+                .onErrorResumeNext(Observable.create(new ObservableOnSubscribe<Integer>() {
+                    @Override
+                    public void subscribe(ObservableEmitter<Integer> e) throws Exception {
+                        Toast.makeText(MainActivity.this, "出错了，启用另一个Observable", Toast.LENGTH_SHORT).show();
+                    }
+                }))
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(onErrorResumeNext2): " + integer);    //1,2,5,6,7
                     }
                 });
 

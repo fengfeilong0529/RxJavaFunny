@@ -1,12 +1,16 @@
 package com.example.rxjavafunny;
 
 
+import android.annotation.SuppressLint;
+import android.os.SystemClock;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import io.reactivex.CompletableObserver;
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
@@ -14,10 +18,12 @@ import io.reactivex.ObservableSource;
 import io.reactivex.Observer;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.functions.Predicate;
+import io.reactivex.observables.GroupedObservable;
 import io.reactivex.schedulers.Schedulers;
 
 /**
@@ -194,13 +200,14 @@ public class OperatorHelper {
                     }
                 });
 
-//        backPressureTest();
+        backPressureTest();
     }
 
     /**
      * BackPressure背压
      * 控制数据流速，避免Observable发送数据太频繁，Observer接收处理不过来导致异常
      */
+    @SuppressLint("CheckResult")
     public static void backPressureTest() {
         /**
          * filter()
@@ -210,7 +217,7 @@ public class OperatorHelper {
         Observable.create(new ObservableOnSubscribe<Integer>() {
             @Override
             public void subscribe(ObservableEmitter<Integer> e) throws Exception {
-                for (int i = 0; ; i++) {
+                for (int i = 0; i < 100; i++) {
                     e.onNext(i);
                 }
             }
@@ -221,7 +228,27 @@ public class OperatorHelper {
                 .filter(new Predicate<Integer>() {
                     @Override
                     public boolean test(Integer integer) throws Exception {
-                        return integer % 100 == 0;
+                        return integer % 10 == 0;
+                    }
+                })
+                .all(new Predicate<Integer>() {
+                    @Override
+                    public boolean test(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(filter all): " + integer);
+                        return integer < 200;
+                    }
+                })
+                .toObservable()
+                .doOnNext(new Consumer<Boolean>() {
+                    @Override
+                    public void accept(Boolean aBoolean) throws Exception {
+                        Log.e(TAG, "accept(filter doOnNext): " + aBoolean);
+                    }
+                })
+                .map(new Function<Boolean, Integer>() {
+                    @Override
+                    public Integer apply(Boolean aBoolean) throws Exception {
+                        return aBoolean ? 1 : 0;
                     }
                 })
                 .observeOn(AndroidSchedulers.mainThread())
@@ -400,6 +427,7 @@ public class OperatorHelper {
     /**
      * https://www.jianshu.com/p/b30de498c3cc
      */
+    @SuppressLint("CheckResult")
     public static void testOtherOperator() {
         Observable observable1 = Observable.empty();//直接调用onCompleted。
         Observable observable2 = Observable.error(new RuntimeException());//直接调用onError。这里可以自定义异常
@@ -531,6 +559,7 @@ public class OperatorHelper {
                         Log.e(TAG, "accept: " + integer);    //2
                     }
                 });
+
         //ofType() 过滤指定类型
         Observable.just(1, 2, "3")
                 .ofType(Integer.class)
@@ -557,6 +586,589 @@ public class OperatorHelper {
                         //6,7,8
                     }
                 });
+
+        //first() 只发射第一条或默认值
+        Observable.just(1, 2, 3, 4, 5)
+                .first(3)
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(first): " + integer); //1
+                    }
+                });
+
+        Observable.empty()
+                .first(3)
+                .subscribe(new Consumer<Object>() {
+                    @Override
+                    public void accept(Object obj) throws Exception {
+                        Log.e(TAG, "accept(first empty): " + obj.toString()); //3 默认值
+                    }
+                });
+
+        //first() 只发射第一条或默认值
+        Observable.just(1, 2, 3, 4, 5)
+                .last(3)
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(last): " + integer);  //5
+                    }
+                });
+
+        //skip() 跳过开始的n条数据或一定时间内的数据
+        Observable.just(1, 2, 3, 4, 5)
+                .skip(2)
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(skip): " + integer);  //3,4,5
+                    }
+                });
+
+        //skipLast() 跳过开始的n条数据或一定时间内的数据
+        Observable.just(1, 2, 3, 4, 5)
+                .skipLast(2)
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(skipLast): " + integer);  //1,2,3
+                    }
+                });
+
+        //elementAt() 发射指定索引的数据
+        Observable.just(1, 2, 3, 4, 5)
+                .elementAt(2)
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(elementAt): " + integer);  //3
+                    }
+                });
+
+        //ignoreElements() 丢弃所有数据，只发射错误或正常终止的通知
+        Observable.just(1, 2, 3, 4, 5)
+                .ignoreElements()
+                .subscribe(new CompletableObserver() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+
+                    }
+                });
+
+        //distinct() 过滤重复数据
+        Observable.just(1, 1, 1, 2, 2, 3, 4, 5, 5, 1)
+                .distinct()
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(distinct): " + integer);  //1,2,3,4,5
+                    }
+                });
+
+        //distinctUntilChanged() 过滤连续的重复数据
+        Observable.just(1, 1, 1, 2, 2, 3, 4, 5, 5, 1)
+                .distinctUntilChanged()
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(distinctUntilChanged): " + integer);  //1,2,3,4,5,1
+                    }
+                });
+
+        //throttleFirst() 定期发射Observable发射的第一项数据    TODO 不太明白
+        Observable.create(new ObservableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(ObservableEmitter<Integer> subscriber) throws Exception {
+                subscriber.onNext(1);
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    throw Exceptions.propagate(e);
+                }
+                subscriber.onNext(2);
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    throw Exceptions.propagate(e);
+                }
+                subscriber.onNext(3);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw Exceptions.propagate(e);
+                }
+                subscriber.onNext(4);
+                subscriber.onNext(5);
+                subscriber.onComplete();
+            }
+        })
+                .throttleFirst(999, TimeUnit.MILLISECONDS)
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(throttleFirst): " + integer);    //结果为1,3,4
+                    }
+                });
+
+        //throttleWithTimeout()/debounce()
+        // 发射数据时，如果两次数据的发射间隔小于指定时间，就会丢弃前一次的数据,直到指定时间内都没有新数据发射时才进行发射
+
+        //sample/throttleLast
+        //定期发射Observable最近的数据，定时取样
+
+        //timeout() 如果原始Observable过了指定的一段时长没有发射任何数据，就发射一个异常或者备用的Observable
+//        Observable.create(new ObservableOnSubscribe<Integer>() {
+//            @Override
+//            public void subscribe(ObservableEmitter<Integer> e) throws Exception {
+//                e.onNext(1);
+//                SystemClock.sleep(1000);
+//                e.onNext(2);
+//            }
+//        })
+//                .timeout(800, TimeUnit.MILLISECONDS)
+//                .subscribe(new Consumer<Integer>() {
+//                    @Override
+//                    public void accept(Integer integer) throws Exception {
+//                        Log.e(TAG, "accept(timeout): " + integer);    //1，会抛出异常
+//                    }
+//                });
+
+        Observable.create(new ObservableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(ObservableEmitter<Integer> e) throws Exception {
+                e.onNext(1);
+                SystemClock.sleep(1000);
+                e.onNext(2);
+            }
+        })
+                .timeout(800, TimeUnit.MILLISECONDS, Observable.just(6, 7, 8)) //指定备用Observable
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(timeout Observable): " + integer);    //结果为1,6,7,8
+                    }
+                });
+
+        /**
+         * 条件/布尔操作
+         */
+        //all() 判断所有数据是否满足条件
+        Observable.just(1, 2, 3, 4, 5)
+                .all(new Predicate<Integer>() {
+                    @Override
+                    public boolean test(Integer integer) throws Exception {
+//                        return integer < 10;  //true
+                        return integer < 4;     //false
+                    }
+                })
+                .subscribe(new Consumer<Boolean>() {
+                    @Override
+                    public void accept(Boolean aBoolean) throws Exception {
+                        Log.e(TAG, "accept(all): " + aBoolean);    //结果为false
+                    }
+                });
+
+        //any() 判断所有数据是否满足任一条件
+        Observable.just(1, 2, 3, 4, 5)
+                .any(new Predicate<Integer>() {
+                    @Override
+                    public boolean test(Integer integer) throws Exception {
+//                        return integer < 10;  //true
+                        return integer < 0;  //false
+//                        return integer < 4;     //true
+                    }
+                })
+                .subscribe(new Consumer<Boolean>() {
+                    @Override
+                    public void accept(Boolean aBoolean) throws Exception {
+                        Log.e(TAG, "accept(any): " + aBoolean);    //结果为false
+                    }
+                });
+
+        //isEmpty() 判空  用于判断Observable发射完毕时，有没有发射数据。有数据false，如果只收到了onComplete通知则为true
+        Observable.just(1, 2, 3, 4, 5)
+                .isEmpty()
+                .subscribe(new Consumer<Boolean>() {
+                    @Override
+                    public void accept(Boolean aBoolean) throws Exception {
+                        Log.e(TAG, "accept(isEmpty): " + aBoolean);    //结果为false
+                    }
+                });
+
+        //contains() 是否包含
+        Observable.just(1, 2, 3, 4, 5)
+                .contains(2)
+                .subscribe(new Consumer<Boolean>() {
+                    @Override
+                    public void accept(Boolean aBoolean) throws Exception {
+                        Log.e(TAG, "accept(contains): " + aBoolean);    //结果为true
+                    }
+                });
+
+        //sequenceEqual() 用于判断两个Observable发射的数据是否相同（数据，发射顺序，终止状态）
+        Observable.sequenceEqual(Observable.just(1, 2, 3), Observable.just(1, 2, 3))
+                .subscribe(new Consumer<Boolean>() {
+                    @Override
+                    public void accept(Boolean aBoolean) throws Exception {
+                        Log.e(TAG, "accept(sequenceEqual): " + aBoolean);    //结果为true
+                    }
+                });
+
+        //ambArray() 给定多个Observable，只让第一个发射数据的Observable发射全部数据，其他Observable将会被忽略(先发才收，后发不收)
+        Observable.ambArray(Observable.create(new ObservableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(ObservableEmitter<Integer> e) throws Exception {
+                SystemClock.sleep(1000);
+                e.onNext(1);
+                e.onNext(2);
+                e.onNext(3);
+                e.onComplete();
+            }
+        }), Observable.just(8, 9, 3))
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(ambArray): " + integer);    //8,9,3
+                    }
+                });
+
+        //switchIfEmpty() 如果原始Observable没有发送数据，就使用备用的Observable
+        Observable.empty()
+                .switchIfEmpty(Observable.just(1, 2, 3))
+                .subscribe(new Consumer<Object>() {
+                    @Override
+                    public void accept(Object o) throws Exception {
+                        Log.e(TAG, "accept(switchIfEmpty): " + o.toString());    //1,2,3
+                    }
+                });
+
+        //defaultIfEmpty() 如果原始Observable正常终止后仍然没有发射任何数据，就发射一个默认值,内部调用的switchIfEmpty
+
+        //takeUntil() 当发射的数据满足某个条件后（包含该数据），或者第二个Observable发送完毕，终止第一个Observable发送数据
+        Observable.just(1, 2, 3, 4, 5, 6)
+                .takeUntil(new Predicate<Integer>() {
+                    @Override
+                    public boolean test(Integer integer) throws Exception {
+                        return integer == 3;
+                    }
+                })
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(takeUntil): " + integer);    //1,2,3
+                    }
+                });
+
+//        Observable.create(new ObservableOnSubscribe<Integer>() {
+//            @Override
+//            public void subscribe(ObservableEmitter<Integer> e) throws Exception {
+//                SystemClock.sleep(1000);
+//                e.onNext(1);
+//                e.onNext(2);
+//                e.onNext(3);
+//                e.onComplete();
+//            }
+//        })
+//                .takeUntil(Observable.empty())  //TODO 没太理解
+//                .subscribe(new Consumer<Integer>() {
+//                    @Override
+//                    public void accept(Integer integer) throws Exception {
+//                        Log.e(TAG, "accept(takeUntil Observable): " + integer);    //1,2,3
+//                    }
+//                });
+
+
+        //takeWhile() 当发射的数据满足某个条件时（不包含该数据），Observable终止发送数据
+        Observable.just(1, 2, 3, 4, 5, 6)
+                .takeWhile(new Predicate<Integer>() {
+                    @Override
+                    public boolean test(Integer integer) throws Exception {
+                        return integer == 3;
+                    }
+                })
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(takeWhile): " + integer);    //1,2
+                    }
+                });
+
+        //skipUntil()
+        Observable.just(1, 2, 3, 4, 5, 6)
+                .skipUntil(Observable.create(new ObservableOnSubscribe<Integer>() {
+                    @Override
+                    public void subscribe(ObservableEmitter<Integer> e) throws Exception {
+//                        SystemClock.sleep(1000);
+//                        e.onNext(11);
+//                        e.onNext(12);
+                    }
+                }))
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(skipUntil): " + integer);    //1, 2, 3, 4, 5, 6
+                    }
+                });
+
+        //skipWhile() 丢弃Observable发射的数据，直到一个指定的条件不成立（不丢弃条件数据）
+        Observable.just(1, 2, 3, 4, 5, 6)
+                .skipWhile(new Predicate<Integer>() {
+                    @Override
+                    public boolean test(Integer integer) throws Exception {
+                        return integer != 3;
+                    }
+                })
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(skipWhile): " + integer);    //3,4,5,6
+                    }
+                });
+
+
+        /**
+         * 聚合操作
+         */
+        //reduce()
+
+
+        /**
+         * 转换操作
+         */
+
+        /**
+         * 变换操作
+         */
+        //flatMap() 将Observable发射的数据变换为Observables集合，然后将这些Observable发射的数据平坦化的放进一个单独的Observable，内部采用merge合并
+        Observable.just(1, 2, 3)
+                .flatMap(new Function<Integer, ObservableSource<?>>() {
+                    @Override
+                    public ObservableSource<?> apply(final Integer integer) throws Exception {
+                        return Observable.create(new ObservableOnSubscribe<String>() {
+                            @Override
+                            public void subscribe(ObservableEmitter<String> e) throws Exception {
+                                e.onNext("我是组合数据-》" + integer * 10);
+                                e.onNext("我是组合数据%-》" + integer * 100);
+                            }
+                        });
+                    }
+                })
+                .subscribe(new Consumer<Object>() {
+                    @Override
+                    public void accept(Object o) throws Exception {
+                        Log.e(TAG, "accept(flatMap): " + o.toString());    //
+                    }
+                });
+
+        //flatMapIterable() flatMap的作用一样，只不过生成的是Iterable而不是Observable
+        Observable.just(1, 2, 3)
+                .flatMapIterable(new Function<Integer, Iterable<?>>() {
+                    @Override
+                    public Iterable<?> apply(Integer integer) throws Exception {
+                        return Arrays.asList(integer * 10 + "", integer * 100 + "");
+                    }
+                })
+                .subscribe(new Consumer<Object>() {
+                    @Override
+                    public void accept(Object o) throws Exception {
+                        Log.e(TAG, "accept(flatMapIterable): " + o.toString());    //10,100,20,200,30,300
+                    }
+                });
+
+        //switchMap() 和flatMap很像，将Observable发射的数据变换为Observables集合，当原始Observable发射一个新的数据（Observable）时，它将取消订阅前一个Observable
+        //todo 不太明白
+
+        //scan 与reduce很像，对Observable发射的每一项数据应用一个函数，然后按顺序依次发射每一个值
+        Observable.just(1, 2, 3, 4, 5)
+                .scan(new BiFunction<Integer, Integer, Integer>() {
+                    @Override
+                    public Integer apply(Integer integer, Integer integer2) throws Exception {
+                        Log.e(TAG, "(scan)integer: " + integer + "    ,integer2: " + integer2);
+                        return integer + integer2;
+                    }
+                })
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(scan): " + integer);    //1,3,6,10,15
+                    }
+                });
+
+        //groupBy() 将Observable分拆为Observable集合，将原始Observable发射的数据按Key分组，每一个Observable发射一组不同的数据
+        Observable.just(1, 2, 3, 4, 5)
+                .groupBy(new Function<Integer, String>() {
+                    @Override
+                    public String apply(Integer integer) throws Exception {
+                        return integer % 2 == 0 ? "偶数" : "奇数";
+                    }
+                })
+                .subscribe(new Consumer<GroupedObservable<String, Integer>>() {
+                    @Override
+                    public void accept(GroupedObservable<String, Integer> stringIntegerGroupedObservable) throws Exception {
+                        final String key = stringIntegerGroupedObservable.getKey();
+//                        Log.e(TAG, "accept(groupBy key): " + key);
+                        stringIntegerGroupedObservable.subscribe(new Consumer<Integer>() {
+                            @Override
+                            public void accept(Integer integer) throws Exception {
+                                Log.e(TAG, "accept(groupBy key): " + key + "     (value): " + integer);
+                            }
+                        });
+                    }
+                });
+
+        //buffer() 定期从Observable收集数据到一个集合，然后把这些数据集合打包发射，而不是一次发射一个
+        Observable.just(1, 2, 3, 4, 5, 6, 7)
+                .buffer(3)
+                .subscribe(new Consumer<List<Integer>>() {
+                    @Override
+                    public void accept(List<Integer> integers) throws Exception {
+                        Log.e(TAG, "accept(buffer): " + Arrays.toString(new List[]{integers}));//1, 2, 3] , [4, 5, 6] , [7]
+                    }
+                });
+
+        //window() 定期将来自Observable的数据分拆成一些Observable窗口，然后发射这些窗口，而不是每次发射一项
+        Observable.just(1, 2, 3, 4, 5, 6, 7)
+                .window(3)
+                .subscribe(new Consumer<Observable<Integer>>() {
+                    @Override
+                    public void accept(Observable<Integer> integerObservable) throws Exception {
+                        //拆分成3个Observable
+                        integerObservable.subscribe(new Consumer<Integer>() {
+                            @Override
+                            public void accept(Integer integer) throws Exception {
+                                Log.e(TAG, "accept(window): " + integer);       //1, 2, 3, 4, 5, 6, 7
+                            }
+                        });
+                    }
+                });
+
+
+        /**
+         * 错误处理/重试机制
+         */
+        //onErrorResumeNext() 当原始Observable在遇到错误时，使用备用Observable
+        Observable.just(1, 2, "a", 3, 4)
+                .cast(Integer.class)
+                .onErrorResumeNext(Observable.just(5, 6, 7))
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(onErrorResumeNext): " + integer);    //1,2,5,6,7
+                    }
+                });
+
+        //onExceptionResumeNext()
+        // 当原始Observable在遇到异常时，使用备用的Observable。与onErrorResumeNext类似，区别在于onErrorResumeNext可以处理所有的错误，onExceptionResumeNext只能处理异常
+
+        //onErrorReturn() 当原始Observable发送数据出错时，发射一个特定的数据
+        Observable.just(1, "a", 2, 3)
+                .cast(Integer.class)
+                .onErrorReturn(new Function<Throwable, Integer>() {
+                    @Override
+                    public Integer apply(Throwable throwable) throws Exception {
+                        return 100;
+                    }
+                })
+                .subscribe(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) throws Exception {
+                        Log.e(TAG, "accept(onErrorReturn): " + integer);
+                    }
+                });
+
+        //retry() 当原始Observable在遇到错误时进行重试，重新发射Observable所有数据
+        Observable.just(1, 2, "a", 5, 3)
+                .cast(Integer.class)
+                .retry(3)
+                .subscribe(new Observer<Integer>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(Integer integer) {
+                        Log.e(TAG, "accept(retry): " + integer);
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.e(TAG, "accept(retry): onError(" + e.getMessage() + ")");
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });//1,2,1,2,1,2,1,2,onError(...)
+
+        //retryWhen() 当原始Observable在遇到错误，将错误传递给另一个Observable来决定是否要重新订阅这个Observable,内部调用的是retry
+//        Observable.just(1, 2, "a", 5, 3)
+//                .cast(Integer.class)
+//                .retryWhen(new Function<Observable<Throwable>, ObservableSource<?>>() {
+//                    @Override
+//                    public ObservableSource<?> apply(Observable<Throwable> throwableObservable) throws Exception {
+//                        return throwableObservable.delay(1, TimeUnit.SECONDS);
+////                        return throwableObservable;
+//                    }
+//                })
+//                .subscribe(new Consumer<Integer>() {
+//                    @Override
+//                    public void accept(Integer integer) throws Exception {
+//                        Log.e(TAG, "accept(retryWhen): " + integer);
+//                    }
+//                });
+
+        /**
+         * 连接操作 todo 后续了解
+         */
+        //ConnectableObservable.connect()
+        //Observable.publish()
+        //Observable.replay()
+        //ConnectableObservable.refCount()
+
+        /**
+         * 阻塞操作
+         */
+        //BlockingObservable
+
+        /**
+         * 工具集
+         */
+        //materialize()
+        //dematerialize()
+        //timestamp()
+        //timeInterval()
+        //serialize()
+        //cache()
+        //observeOn()
+        //subscribeOn()
+        //doOnEach()
+        //doOnCompleted()
+        //doOnError()
+        //doOnTerminate()
+        //doOnSubscribe()
+        //doOnUnsubscribe()
+        //finallyDo/doAfterTerminate()
+        //delay()
+        //delaySubscription()
+        //using()
+        //single/singleOrDefault()  强制返回单个数据，否则抛出异常或默认数据
+
+        /**
+         * 阻塞操作
+         */
 
     }
 }
