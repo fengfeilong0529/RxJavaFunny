@@ -33,6 +33,7 @@ import io.reactivex.schedulers.Schedulers;
 public class OperatorHelper {
     private static final String TAG = "OperatorHelper";
 
+    @SuppressLint("CheckResult")
     public static void testOperator() {
         /**
          * map()

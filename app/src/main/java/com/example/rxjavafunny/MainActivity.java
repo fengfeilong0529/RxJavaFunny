@@ -1,5 +1,6 @@
 package com.example.rxjavafunny;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.text.TextUtils;
@@ -34,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
         test();
     }
 
+    @SuppressLint("CheckResult")
     private void test() {
         /**
          * onError()与onComplete()为互斥关系
