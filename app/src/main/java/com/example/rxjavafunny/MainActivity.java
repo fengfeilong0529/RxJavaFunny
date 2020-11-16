@@ -7,6 +7,9 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.example.rxjavafunny.helper.rxjava2.FlowableHelper;
+import com.example.rxjavafunny.helper.rxjava2.OperatorHelper;
+
 import androidx.appcompat.app.AppCompatActivity;
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
@@ -28,11 +31,28 @@ public class MainActivity extends AppCompatActivity {
     private Disposable mDisposable;
     private CompositeDisposable mCompositeDisposable;
 
+    @SuppressLint("CheckResult")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         test();
+
+//        RetrofitManager.create(HttpService.class)
+//                .login("fengfeilong", "123456")
+//                .subscribeOn(Schedulers.io())
+//                .observeOn(AndroidSchedulers.mainThread())
+//                .subscribe(new Consumer<BaseResponse>() {
+//                    @Override
+//                    public void accept(BaseResponse baseResponse) throws Exception {
+//                        Log.e(TAG, "accept: " + baseResponse.toString());
+//                    }
+//                }, new Consumer<Throwable>() {
+//                    @Override
+//                    public void accept(Throwable throwable) throws Exception {
+//                        Log.e(TAG, "accept: " + throwable.getMessage());
+//                    }
+//                });
     }
 
     @SuppressLint("CheckResult")

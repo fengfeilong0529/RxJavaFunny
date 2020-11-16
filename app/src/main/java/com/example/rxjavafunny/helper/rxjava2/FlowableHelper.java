@@ -1,4 +1,4 @@
-package com.example.rxjavafunny;
+package com.example.rxjavafunny.helper.rxjava2;
 
 import android.util.Log;
 
